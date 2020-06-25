@@ -2,7 +2,7 @@
 IRIS Data Classification using Streamlit package.... 
 
 ## for live demo :- 
-https://iris-machinelearning.herokuapp.com/
+https://ens-auto-ml.herokuapp.com/
 
 #Required Files
 1. setup.sh
