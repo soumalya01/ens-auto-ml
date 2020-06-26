@@ -10,7 +10,8 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.metrics import classification_report
 
 
 def main():
@@ -68,6 +69,9 @@ def main():
     if st.checkbox("Select Target Column"):
         all_columns = load_data().columns
         target = st.selectbox("Select", all_columns)
+        if dataDF[target].dtype == "object":
+            label_encoder = LabelEncoder()
+            dataDF[target] = label_encoder.fit_transform(dataDF[target])
         # st.write(load_data()[names])
 
     if st.checkbox("Auto Discard Columns"):
@@ -92,15 +96,16 @@ def main():
             print("There has been an exception: ", e)
             one_hot = pd.DataFrame()
 
-        main_df = pd.concat([one_hot, dataDF], axis=1)
+        dataDF = pd.concat([one_hot, dataDF], axis=1)
 
     sc = StandardScaler()
     st.header("Split DataSet into Train and Test")
 
     if st.checkbox("Split"):
-        X = main_df.drop([target], axis=1)
+        print(dataDF.dtypes)
+        X = dataDF.drop([target], axis=1)
         # X = X.apply(normalize)
-        y = main_df[target]
+        y = dataDF[target]
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=20)
 
     if st.checkbox("Normalize Columns"):
@@ -164,7 +169,7 @@ def main():
         st.write("Binary Classification: GB Classifier, RF Classifier, SVM")
         st.write("Regression: OLS, XGB, Lasso Regression")
 
-        if main_df[target].nunique() == 2:
+        if dataDF[target].nunique() == 2:
             st.header("Using Binary Classification Algorithms")
             GB = gradBoost(X_train, y_train)
             st.write('Accuracy of Gradient Boosting classifier on test set: {:.2f}'.format(GB.score(X_test, y_test)))
@@ -173,9 +178,14 @@ def main():
             SVM = svm(X_train, y_train)
             st.write('Accuracy of SVM classifier on test set: {:.2f}'.format(SVM.score(X_test, y_test)))
 
-        elif main_df[target].nunique() / main_df[target].count() < .1:
+        elif dataDF[target].nunique() / dataDF[target].count() < .1:
             st.header("Using Multi-Class Classification Algorithms")
-
+            GB = gradBoost(X_train, y_train)
+            st.write('Accuracy of Gradient Boosting classifier on test set: {:.2f}'.format(GB.score(X_test, y_test)))
+            st.write(classification_report(y_test, GB.predict(X_test)))
+            RF = randForest(X_train, y_train)
+            st.write('Accuracy of Random Forest classifier on test set: {:.2f}'.format(RF.score(X_test, y_test)))
+            st.write(classification_report(y_test, RF.predict(X_test)))
         else:
             st.header("Using Regression Algorithms")
             from sklearn.metrics import mean_squared_error, r2_score
