@@ -66,7 +66,7 @@ def main():
         st.text("Count of NaN values")
         st.write(load_data().isnull().any().sum())
 
-    if st.checkbox("Select Target Column"):
+    if st.checkbox("*Select Target Column"):
         all_columns = load_data().columns
         target = st.selectbox("Select", all_columns)
         if dataDF[target].dtype == "object":
@@ -74,7 +74,7 @@ def main():
             dataDF[target] = label_encoder.fit_transform(dataDF[target])
         # st.write(load_data()[names])
 
-    if st.checkbox("Auto Discard Columns"):
+    if st.checkbox("*Auto Discard Columns"):
         for column in dataDF:
             if dataDF[column].nunique() == dataDF.shape[0]:
                 dataDF.drop([column], axis=1, inplace=True)
@@ -87,7 +87,7 @@ def main():
         st.text("Count of NaN values")
         st.write(dataDF.isnull().any().sum())
 
-    if st.checkbox("Preprocess Object Type Columns"):
+    if st.checkbox("*Preprocess Object Type Columns"):
         obj_df = dataDF.select_dtypes(include=['object']).copy()
         dataDF = dataDF.select_dtypes(exclude=['object'])
         try:
@@ -101,18 +101,19 @@ def main():
     sc = StandardScaler()
     st.header("Split DataSet into Train and Test")
 
-    if st.checkbox("Split"):
+    if st.checkbox("*Split"):
         print(dataDF.dtypes)
         X = dataDF.drop([target], axis=1)
         # X = X.apply(normalize)
         y = dataDF[target]
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=20)
 
-    if st.checkbox("Normalize Columns"):
+    if st.checkbox("*Normalize Columns"):
         from sklearn.preprocessing import MinMaxScaler
         norm = MinMaxScaler()
         X_train = norm.fit_transform(X_train)
         X_test = norm.transform(X_test)
+        X = norm.transform(X)
 
     if st.checkbox("Show X_test,X_train,y_test,y_train"):
         st.write("X_train")
@@ -161,14 +162,15 @@ def main():
     def lassoReg(X, y):
         from sklearn.linear_model import Lasso
         lasso = Lasso(alpha=0.01)
-        lasso.fit(X_train, y_train)
+        lasso.fit(X, y)
         return lasso
 
-    if st.checkbox("ML Algorithms"):
+
+
+    if st.checkbox("*ML Algorithms"):
         st.write("Available algorithms are:")
         st.write("Binary Classification: GB Classifier, RF Classifier, SVM")
         st.write("Regression: OLS, XGB, Lasso Regression")
-
         if dataDF[target].nunique() == 2:
             st.header("Using Binary Classification Algorithms")
             GB = gradBoost(X_train, y_train)
@@ -177,7 +179,6 @@ def main():
             st.write('Accuracy of Random Forest classifier on test set: {:.2f}'.format(RF.score(X_test, y_test)))
             SVM = svm(X_train, y_train)
             st.write('Accuracy of SVM classifier on test set: {:.2f}'.format(SVM.score(X_test, y_test)))
-
         elif dataDF[target].nunique() / dataDF[target].count() < .1:
             st.header("Using Multi-Class Classification Algorithms")
             GB = gradBoost(X_train, y_train)
@@ -198,6 +199,74 @@ def main():
             LassReg = lassoReg(X_train, y_train)
             st.write('R-squared value for Lasso Regression predictor on test set: {:.2f}%'.format(
                 r2_score(y_test, LassReg.predict(X_test))))
+
+    st.header("Run Prediction on Test Set")        
+    if st.checkbox("*Select Desired Algorithm"):
+        if dataDF[target].nunique() == 2:
+            selectML = st.selectbox("Select", ['Gradient Boosting classifier','Random Forest classifier','SVM classifier'])
+            if selectML == 'Gradient Boosting classifier':
+                dML = GB
+            elif selectML == 'Random Forest classifier':
+                dML = RF
+            elif selectML == 'SVM classifier':
+                dML = SVM
+        elif dataDF[target].nunique() / dataDF[target].count() < .1:
+            selectML = st.selectbox("Select", ['Gradient Boosting classifier','Random Forest classifier'])
+            if selectML == 'Gradient Boosting classifier':
+                dML = GB
+            elif selectML == 'Random Forest classifier':
+                dML = RF
+        else:
+            selectML = st.selectbox("Select", ['Linear Regression predictor','eXtreme Gradient Boosting Regression predictor','Lasso Regression predictor'])
+            if selectML == 'Linear Regression predictor':
+                dML = LReg
+            elif selectML == 'eXtreme Gradient Boosting Regression predictor':
+                dML = XGB
+            elif selectML == 'Lasso Regression predictor':
+                dML = LReg
+
+        data_test = './DataDump/file' + datetime.now().strftime("%d%b%Y_%H%M%S%f") + '.csv'
+        file_test = st.file_uploader("Upload test file")
+        try:
+            if file_bytes is not None:
+                with open(data_test, mode='w', newline='') as f:
+                    print(file_test.getvalue().strip('\r\n'), file=f)
+                    data_load_state.text("Upload....Done!")
+                dataDF1 = pd.read_csv(data_test)
+        except FileNotFoundError:
+            st.error('File not found.')
+
+
+
+    if st.checkbox("*PREDICT"):
+
+
+
+        for column in dataDF1:
+                if dataDF1[column].nunique() == dataDF1.shape[0]:
+                        dataDF1.drop([column], axis=1, inplace=True)
+        for column in dataDF1:
+                if 'name' in column.lower():
+                        dataDF1.drop([column], axis=1, inplace=True)
+
+        obj_df1 = dataDF1.select_dtypes(include=['object']).copy()
+        dataDF1 = dataDF1.select_dtypes(exclude=['object'])
+        try:
+            one_hot1 = pd.get_dummies(obj_df1)  # ,drop_first=True)
+        except Exception as e:
+            print("There has been an exception: ", e)
+            one_hot1 = pd.DataFrame()
+
+        dataDF1 = pd.concat([one_hot1, dataDF1], axis=1)
+
+        X1 = dataDF1.drop([target], axis=1)
+        y1 = dataDF1[target]
+        X1 = norm.transform(X1)
+
+        st.write('Accuracy of Selected Algorithm on test Dataset: {:.2f}'.format(dML.score(X1, y1)))
+
+        
+
 
 
 if __name__ == '__main__':
