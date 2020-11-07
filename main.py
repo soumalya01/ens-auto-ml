@@ -278,7 +278,7 @@ def main():
 
 
 
-    st.subheader("*PREDICT")
+    st.subheader("PREDICT")
     try:
         if file_bytes is not None:
 
