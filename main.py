@@ -3,7 +3,6 @@
 """
 Created on Jun 6/25/20 8:49 PM 2020
 
-@author: Anirban Das
 """
 
 import streamlit as st
@@ -17,19 +16,30 @@ from sklearn.metrics import classification_report
 def main():
     st.title("ABC Corp..")
     st.title("Automated Machine Learning Web (POC)")
-    data_file = './DataDump/file' + datetime.now().strftime("%d%b%Y_%H%M%S%f") + '.csv'
+    file_name = ''+ datetime.now().strftime("%d%b%Y_%H%M%S%f") + '.csv'
+    data_file = './DataDump/file' + file_name
     file_bytes = st.file_uploader("Upload a file")
     data_load_state = st.text("Upload your data")
+    from ftplib import FTP
+    ftp = FTP('ensaio.in')
+    ftp.login('u269008503', '1QAZ2wsx')
+    ftp.cwd('uploads/automl')
+    
     try:
         if file_bytes is not None:
             with open(data_file, mode='w', newline='') as f:
                 print(file_bytes.getvalue().strip('\r\n'), file=f)
                 data_load_state.text("Upload....Done!")
-            dataDF = pd.read_csv(data_file)
+            #dataDF = pd.read_csv(data_file)
+            with open(data_file, 'rb') as f:
+                ftp.storbinary(f'STOR {file_name}', f)
+                ftp.quit()
+
     except FileNotFoundError:
         st.error('File not found.')
 
     st.header("Data Exploration")
+    st.sidebar.header("Data Exploration")
 
     X = ""
     y = ""
@@ -45,18 +55,18 @@ def main():
         # st.write(data.head())
         return data
 
-    if st.checkbox("Show Data HEAD or TAIL"):
+    if st.sidebar.checkbox("Show Data HEAD or TAIL"):
         select_option = st.radio("Select option", ['HEAD', 'TAIL'])
         if select_option == 'HEAD':
-            st.write(dataDF.head())
+            st.write(load_data().head())
         elif select_option == "TAIL":
-            st.write(dataDF.tail())
+            st.write(load_data().tail())
 
-    if st.checkbox("Show Full Data"):
+    if st.sidebar.checkbox("Show Full Data"):
         st.write(load_data())
         data_load_state.text("Loading data....Done!")
 
-    if st.checkbox("Data Info"):
+    if st.sidebar.checkbox("Data Info"):
         st.text("Data Shape")
         st.write(load_data().shape)
         st.text("Data Columns")
@@ -66,56 +76,78 @@ def main():
         st.text("Count of NaN values")
         st.write(load_data().isnull().any().sum())
 
-    if st.checkbox("*Select Target Column"):
-        all_columns = load_data().columns
-        target = st.selectbox("Select", all_columns)
-        if dataDF[target].dtype == "object":
-            label_encoder = LabelEncoder()
-            dataDF[target] = label_encoder.fit_transform(dataDF[target])
-        # st.write(load_data()[names])
+    st.markdown("Select Target Column")
+    try:
+        if file_bytes is not None:
+            all_columns = load_data().columns
+            dataDF = load_data()
+            target = st.selectbox("Select", all_columns)
+            if dataDF[target].dtype == "object":
+                label_encoder = LabelEncoder()
+                dataDF[target] = label_encoder.fit_transform(dataDF[target])
 
-    if st.checkbox("*Auto Discard Columns"):
-        for column in dataDF:
-            if dataDF[column].nunique() == dataDF.shape[0]:
-                dataDF.drop([column], axis=1, inplace=True)
-        for column in dataDF:
-            if 'name' in column.lower():
-                dataDF.drop([column], axis=1, inplace=True)
+    except:
+        st.markdown('File not found.')
 
-        st.text("Data Columns")
-        st.write(dataDF.columns)
-        st.text("Count of NaN values")
-        st.write(dataDF.isnull().any().sum())
+    st.markdown("Auto Discard Columns")
+    try:
+        if file_bytes is not None:
+            for column in dataDF:
+                if dataDF[column].nunique() == dataDF.shape[0]:
+                    dataDF.drop([column], axis=1, inplace=True)
+            for column in dataDF:
+                if 'name' in column.lower():
+                    dataDF.drop([column], axis=1, inplace=True)
 
-    if st.checkbox("*Preprocess Object Type Columns"):
-        obj_df = dataDF.select_dtypes(include=['object']).copy()
-        dataDF = dataDF.select_dtypes(exclude=['object'])
-        try:
-            one_hot = pd.get_dummies(obj_df)  # ,drop_first=True)
-        except Exception as e:
-            print("There has been an exception: ", e)
-            one_hot = pd.DataFrame()
+            st.text("Data Columns")
+            st.write(dataDF.columns)
+            st.text("Count of NaN values")
+            st.write(dataDF.isnull().any().sum())
+    except:
+        st.markdown('File not found.')
 
-        dataDF = pd.concat([one_hot, dataDF], axis=1)
+    st.markdown("Preprocess Object Type Columns")
+    try:
+        if file_bytes is not None:
+            obj_df = dataDF.select_dtypes(include=['object']).copy()
+            dataDF = dataDF.select_dtypes(exclude=['object'])
+            try:
+                one_hot = pd.get_dummies(obj_df)  # ,drop_first=True)
+            except Exception as e:
+                print("There has been an exception: ", e)
+                one_hot = pd.DataFrame()
+
+            dataDF = pd.concat([one_hot, dataDF], axis=1)
+    except:
+        st.markdown('File not found.')
 
     sc = StandardScaler()
     st.header("Split DataSet into Train and Test")
+    st.sidebar.header("Split DataSet into Train and Test")
 
-    if st.checkbox("*Split"):
-        print(dataDF.dtypes)
-        X = dataDF.drop([target], axis=1)
-        # X = X.apply(normalize)
-        y = dataDF[target]
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=20)
+    st.markdown("Split")
+    try:
+        if file_bytes is not None:
+            #print(dataDF.dtypes)
+            X = dataDF.drop([target], axis=1)
+            # X = X.apply(normalize)
+            y = dataDF[target]
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=20)
+    except:
+        st.markdown('File not found.')
 
-    if st.checkbox("*Normalize Columns"):
-        from sklearn.preprocessing import MinMaxScaler
-        norm = MinMaxScaler()
-        X_train = norm.fit_transform(X_train)
-        X_test = norm.transform(X_test)
-        X = norm.transform(X)
+    st.markdown("Normalize Columns")
+    try:
+        if file_bytes is not None:
+            from sklearn.preprocessing import MinMaxScaler
+            norm = MinMaxScaler()
+            X_train = norm.fit_transform(X_train)
+            X_test = norm.transform(X_test)
+            X = norm.transform(X)
+    except:
+        st.markdown('File not found.')
 
-    if st.checkbox("Show X_test,X_train,y_test,y_train"):
+    if st.sidebar.checkbox("Show X_test,X_train,y_test,y_train"):
         st.write("X_train")
         st.write(X_train)
         st.write(X_train.shape)
@@ -167,104 +199,115 @@ def main():
 
 
 
-    if st.checkbox("*ML Algorithms"):
-        st.write("Available algorithms are:")
-        st.write("Binary Classification: GB Classifier, RF Classifier, SVM")
-        st.write("Regression: OLS, XGB, Lasso Regression")
-        if dataDF[target].nunique() == 2:
-            st.header("Using Binary Classification Algorithms")
-            GB = gradBoost(X_train, y_train)
-            st.write('Accuracy of Gradient Boosting classifier on test set: {:.2f}'.format(GB.score(X_test, y_test)))
-            RF = randForest(X_train, y_train)
-            st.write('Accuracy of Random Forest classifier on test set: {:.2f}'.format(RF.score(X_test, y_test)))
-            SVM = svm(X_train, y_train)
-            st.write('Accuracy of SVM classifier on test set: {:.2f}'.format(SVM.score(X_test, y_test)))
-        elif dataDF[target].nunique() / dataDF[target].count() < .1:
-            st.header("Using Multi-Class Classification Algorithms")
-            GB = gradBoost(X_train, y_train)
-            st.write('Accuracy of Gradient Boosting classifier on test set: {:.2f}'.format(GB.score(X_test, y_test)))
-            st.write(classification_report(y_test, GB.predict(X_test)))
-            RF = randForest(X_train, y_train)
-            st.write('Accuracy of Random Forest classifier on test set: {:.2f}'.format(RF.score(X_test, y_test)))
-            st.write(classification_report(y_test, RF.predict(X_test)))
-        else:
-            st.header("Using Regression Algorithms")
-            from sklearn.metrics import mean_squared_error, r2_score
-            LReg = linearReg(X_train, y_train)
-            st.write('R-squared value for Linear Regression predictor on test set: {:.2f}%'.format(
-                r2_score(y_test, LReg.predict(X_test))))
-            XGB = xgb(X_train, y_train)
-            st.write('R-squared value for eXtreme Gradient Boosting Regression predictor on test set: {:.2f}%'.format(
-                r2_score(y_test, XGB.predict(X_test))))
-            LassReg = lassoReg(X_train, y_train)
-            st.write('R-squared value for Lasso Regression predictor on test set: {:.2f}%'.format(
-                r2_score(y_test, LassReg.predict(X_test))))
+    st.subheader("ML Algorithms")
+    try:
+        if file_bytes is not None:           
+            st.write("Available algorithms are:")
+            st.write("Binary Classification: GB Classifier, RF Classifier, SVM")
+            st.write("Regression: OLS, XGB, Lasso Regression")
+            if dataDF[target].nunique() == 2:
+                st.header("Using Binary Classification Algorithms")
+                GB = gradBoost(X_train, y_train)
+                st.write('Accuracy of Gradient Boosting classifier on test set: {:.2f}'.format(GB.score(X_test, y_test)))
+                RF = randForest(X_train, y_train)
+                st.write('Accuracy of Random Forest classifier on test set: {:.2f}'.format(RF.score(X_test, y_test)))
+                SVM = svm(X_train, y_train)
+                st.write('Accuracy of SVM classifier on test set: {:.2f}'.format(SVM.score(X_test, y_test)))
+            elif dataDF[target].nunique() / dataDF[target].count() < .1:
+                st.header("Using Multi-Class Classification Algorithms")
+                GB = gradBoost(X_train, y_train)
+                st.write('Accuracy of Gradient Boosting classifier on test set: {:.2f}'.format(GB.score(X_test, y_test)))
+                st.write(classification_report(y_test, GB.predict(X_test)))
+                RF = randForest(X_train, y_train)
+                st.write('Accuracy of Random Forest classifier on test set: {:.2f}'.format(RF.score(X_test, y_test)))
+                st.write(classification_report(y_test, RF.predict(X_test)))
+            else:
+                st.header("Using Regression Algorithms")
+                from sklearn.metrics import mean_squared_error, r2_score
+                LReg = linearReg(X_train, y_train)
+                st.write('R-squared value for Linear Regression predictor on test set: {:.2f}%'.format(
+                    r2_score(y_test, LReg.predict(X_test))))
+                XGB = xgb(X_train, y_train)
+                st.write('R-squared value for eXtreme Gradient Boosting Regression predictor on test set: {:.2f}%'.format(
+                    r2_score(y_test, XGB.predict(X_test))))
+                LassReg = lassoReg(X_train, y_train)
+                st.write('R-squared value for Lasso Regression predictor on test set: {:.2f}%'.format(
+                    r2_score(y_test, LassReg.predict(X_test))))
+    except:
+        st.markdown('File not found.')
 
     st.header("Run Prediction on Test Set")        
-    if st.checkbox("*Select Desired Algorithm"):
-        if dataDF[target].nunique() == 2:
-            selectML = st.selectbox("Select", ['Gradient Boosting classifier','Random Forest classifier','SVM classifier'])
-            if selectML == 'Gradient Boosting classifier':
-                dML = GB
-            elif selectML == 'Random Forest classifier':
-                dML = RF
-            elif selectML == 'SVM classifier':
-                dML = SVM
-        elif dataDF[target].nunique() / dataDF[target].count() < .1:
-            selectML = st.selectbox("Select", ['Gradient Boosting classifier','Random Forest classifier'])
-            if selectML == 'Gradient Boosting classifier':
-                dML = GB
-            elif selectML == 'Random Forest classifier':
-                dML = RF
-        else:
-            selectML = st.selectbox("Select", ['Linear Regression predictor','eXtreme Gradient Boosting Regression predictor','Lasso Regression predictor'])
-            if selectML == 'Linear Regression predictor':
-                dML = LReg
-            elif selectML == 'eXtreme Gradient Boosting Regression predictor':
-                dML = XGB
-            elif selectML == 'Lasso Regression predictor':
-                dML = LReg
+    st.subheader("Select Desired Algorithm")
+    try:
+        if file_bytes is not None:
+            if dataDF[target].nunique() == 2:
+                selectML = st.selectbox("Select", ['Gradient Boosting classifier','Random Forest classifier','SVM classifier'])
+                if selectML == 'Gradient Boosting classifier':
+                    dML = GB
+                elif selectML == 'Random Forest classifier':
+                    dML = RF
+                elif selectML == 'SVM classifier':
+                    dML = SVM
+            elif dataDF[target].nunique() / dataDF[target].count() < .1:
+                selectML = st.selectbox("Select", ['Gradient Boosting classifier','Random Forest classifier'])
+                if selectML == 'Gradient Boosting classifier':
+                    dML = GB
+                elif selectML == 'Random Forest classifier':
+                    dML = RF
+            else:
+                selectML = st.selectbox("Select", ['Linear Regression predictor','eXtreme Gradient Boosting Regression predictor','Lasso Regression predictor'])
+                if selectML == 'Linear Regression predictor':
+                    dML = LReg
+                elif selectML == 'eXtreme Gradient Boosting Regression predictor':
+                    dML = XGB
+                elif selectML == 'Lasso Regression predictor':
+                    dML = LReg
 
-        data_test = './DataDump/file' + datetime.now().strftime("%d%b%Y_%H%M%S%f") + '.csv'
-        file_test = st.file_uploader("Upload test file")
-        try:
-            if file_bytes is not None:
-                with open(data_test, mode='w', newline='') as f:
-                    print(file_test.getvalue().strip('\r\n'), file=f)
-                    data_load_state.text("Upload....Done!")
-                dataDF1 = pd.read_csv(data_test)
-        except FileNotFoundError:
-            st.error('File not found.')
+            data_test = './DataDump/file' + datetime.now().strftime("%d%b%Y_%H%M%S%f") + '.csv'
+            file_test = st.file_uploader("Upload test file")
+            try:
+                if file_bytes is not None:
+                    with open(data_test, mode='w', newline='') as f:
+                        print(file_test.getvalue().strip('\r\n'), file=f)
+                        data_load_state.text("Upload....Done!")
+                    dataDF1 = pd.read_csv(data_test)
+            except FileNotFoundError:
+                st.error('File not found.')
+    except:
+        st.markdown('File not found.')
 
 
 
-    if st.checkbox("*PREDICT"):
+    st.subheader("*PREDICT")
+    try:
+        if file_bytes is not None:
 
 
 
-        for column in dataDF1:
-                if dataDF1[column].nunique() == dataDF1.shape[0]:
-                        dataDF1.drop([column], axis=1, inplace=True)
-        for column in dataDF1:
-                if 'name' in column.lower():
-                        dataDF1.drop([column], axis=1, inplace=True)
+            for column in dataDF1:
+                    if dataDF1[column].nunique() == dataDF1.shape[0]:
+                            dataDF1.drop([column], axis=1, inplace=True)
+            for column in dataDF1:
+                    if 'name' in column.lower():
+                            dataDF1.drop([column], axis=1, inplace=True)
 
-        obj_df1 = dataDF1.select_dtypes(include=['object']).copy()
-        dataDF1 = dataDF1.select_dtypes(exclude=['object'])
-        try:
-            one_hot1 = pd.get_dummies(obj_df1)  # ,drop_first=True)
-        except Exception as e:
-            print("There has been an exception: ", e)
-            one_hot1 = pd.DataFrame()
+            obj_df1 = dataDF1.select_dtypes(include=['object']).copy()
+            dataDF1 = dataDF1.select_dtypes(exclude=['object'])
+            try:
+                one_hot1 = pd.get_dummies(obj_df1)  # ,drop_first=True)
+            except Exception as e:
+                print("There has been an exception: ", e)
+                one_hot1 = pd.DataFrame()
 
-        dataDF1 = pd.concat([one_hot1, dataDF1], axis=1)
+            dataDF1 = pd.concat([one_hot1, dataDF1], axis=1)
 
-        X1 = dataDF1.drop([target], axis=1)
-        y1 = dataDF1[target]
-        X1 = norm.transform(X1)
+            X1 = dataDF1.drop([target], axis=1)
+            y1 = dataDF1[target]
+            X1 = norm.transform(X1)
 
-        st.write('Accuracy of Selected Algorithm on test Dataset: {:.2f}'.format(dML.score(X1, y1)))
-
+            st.write('Accuracy of Selected Algorithm on test Dataset: {:.2f}'.format(dML.score(X1, y1)))
+    except:
+        st.markdown('File not found.')
         
 
 
