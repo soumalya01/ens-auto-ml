@@ -20,10 +20,7 @@ def main():
     data_file = './DataDump/file' + file_name
     file_bytes = st.file_uploader("Upload a file")
     data_load_state = st.text("Upload your data")
-    from ftplib import FTP
-    ftp = FTP('ensaio.in')
-    ftp.login('u269008503', '1QAZ2wsx')
-    ftp.cwd('uploads/automl')
+
     
     try:
         if file_bytes is not None:
@@ -31,9 +28,7 @@ def main():
                 print(file_bytes.getvalue().strip('\r\n'), file=f)
                 data_load_state.text("Upload....Done!")
             #dataDF = pd.read_csv(data_file)
-            with open(data_file, 'rb') as f:
-                ftp.storbinary(f'STOR {file_name}', f)
-                ftp.quit()
+
 
     except FileNotFoundError:
         st.error('File not found.')
